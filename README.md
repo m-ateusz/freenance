@@ -4,16 +4,37 @@ A web application that helps users manage their debt with an AI-powered chat ass
 
 ## Features
 
-- Track total debt and payments
-- Visualize payment history with charts
-- Add and manage multiple debts
-- Record payments
-- AI-powered chat assistant for financial advice
+### Dashboard
+- Real-time debt overview with total debt and amount paid
+- Interactive debt visualization charts
+- Payment history tracking with date and amount
+- Support for multiple debts with different interest rates
+- Automatic interest and capital allocation calculation
+
+### AI Chat Assistant
+- Natural language interaction for financial advice
+- Voice input support with WebM audio recording
+- Context-aware responses based on your financial situation
+- Real-time debt and payment information integration
+- Markdown support for formatted responses
+
+### Payment Management
+- Add and track payments for specific debts
+- Automatic payment distribution between interest and capital
+- Historical payment record keeping
+- Payment impact visualization on total debt
+
+### Data Management
+- Automatic data persistence using localStorage
+- No account required - all data stays in your browser
+- Export/import functionality for data backup
+- Privacy-focused design
 
 ## Prerequisites
 
 - Node.js (v14 or higher)
 - npm
+- Modern web browser with WebM audio support
 
 ## Setup
 
@@ -44,22 +65,32 @@ npm run dev
 
 ## Tech Stack
 
-- Frontend:
-  - React (Vite)
-  - Tailwind CSS
-  - Chart.js
-  - React Icons
-- Backend:
-  - Node.js
-  - Express
-  - OpenAI API
+### Frontend
+- React (Vite) for UI components
+- Tailwind CSS for styling
+- Chart.js for data visualization
+- React Icons for UI elements
+- WebAudio API for voice recording
 
-## Data Storage
+### Backend
+- Node.js with Express
+- OpenAI API for chat and voice transcription
+- Multer for file upload handling
+- CORS for cross-origin resource sharing
 
-All data is stored in the browser's localStorage. This includes:
-- Debt information
-- Payment history
-- Chat messages
+### Data Storage
+- Browser's localStorage for persistent data storage
+- Stores:
+  - Debt information
+  - Payment history
+  - Chat messages
+  - User preferences
+
+## Security Features
+- Environment variable based API key management
+- Client-side data storage for privacy
+- Input validation for all forms
+- Secure audio file handling
 
 ## License
 
