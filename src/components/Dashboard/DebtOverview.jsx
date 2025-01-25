@@ -1,34 +1,49 @@
 import { useState } from 'react';
+import { addDebt, deleteDebt } from '../../services/firestore';
 
-function DebtOverview({ totalDebt, totalPaid, debts, setDebts }) {
-  const [newDebt, setNewDebt] = useState({ 
-    name: '', 
-    amount: '', 
+function DebtOverview({ totalDebt, totalPaid, debts, setDebts, userId }) {
+  const [newDebt, setNewDebt] = useState({
+    name: '',
+    amount: '',
     monthlyPayment: '',
-    interestRate: '' 
+    interestRate: ''
   });
-  
-  const handleAddDebt = (e) => {
+
+  const handleAddDebt = async (e) => {
     e.preventDefault();
     if (!newDebt.name || !newDebt.amount || !newDebt.monthlyPayment) return;
     
-    setDebts([...debts, {
-      id: Date.now(),
+    const debtData = {
       name: newDebt.name,
       amount: parseFloat(newDebt.amount),
       monthlyPayment: parseFloat(newDebt.monthlyPayment),
       interestRate: parseFloat(newDebt.interestRate) || 0,
       dateAdded: new Date().toISOString()
-    }]);
-    
-    setNewDebt({ name: '', amount: '', monthlyPayment: '', interestRate: '' });
+    };
+
+    try {
+      const docRef = await addDebt(userId, debtData);
+      setDebts([...debts, { ...debtData, id: docRef.id }]);
+      setNewDebt({ name: '', amount: '', monthlyPayment: '', interestRate: '' });
+    } catch (error) {
+      console.error('Error adding debt:', error);
+    }
+  };
+
+  const handleDelete = async (debtId) => {
+    try {
+      await deleteDebt(userId, debtId);
+      setDebts(debts.filter(debt => debt.id !== debtId));
+    } catch (error) {
+      console.error('Error deleting debt:', error);
+    }
   };
 
   const totalMonthlyPayments = debts.reduce((sum, debt) => sum + (debt.monthlyPayment || 0), 0);
 
   return (
-    <div className="bg-white shadow-lg rounded-lg p-6 border border-gray-100">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Debt Overview</h2>
+    <div className="bg-white shadow rounded-lg p-6">
+      <h2 className="text-xl font-semibold mb-4">Debt Overview</h2>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6 rounded-xl text-white shadow-md">
@@ -56,9 +71,17 @@ function DebtOverview({ totalDebt, totalPaid, debts, setDebts }) {
                   Interest: {debt.interestRate}% | Monthly Payment: ${debt.monthlyPayment.toFixed(2)}
                 </p>
               </div>
-              <p className="font-semibold text-lg text-gray-800">
-                ${debt.amount.toFixed(2)}
-              </p>
+              <div className="flex items-center space-x-4">
+                <p className="font-semibold text-lg text-gray-800">
+                  ${debt.amount.toFixed(2)}
+                </p>
+                <button
+                  onClick={() => handleDelete(debt.id)}
+                  className="text-red-600 hover:text-red-800"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -110,7 +133,7 @@ function DebtOverview({ totalDebt, totalPaid, debts, setDebts }) {
         </div>
         <button
           type="submit"
-          className="w-full md:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+          className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
         >
           Add Debt
         </button>

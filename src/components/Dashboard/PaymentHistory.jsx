@@ -1,228 +1,111 @@
 import { useState } from 'react';
+import { addPayment } from '../../services/firestore';
 
-function PaymentHistory({ payments, setPayments, debts, setDebts }) {
-  const [newPayment, setNewPayment] = useState({ 
-    amount: '', 
-    date: '', 
-    note: '', 
+export default function PaymentHistory({ payments, setPayments, debts, userId }) {
+  const [newPayment, setNewPayment] = useState({
+    amount: '',
     debtId: '',
-    interestAmount: 0,
-    capitalAmount: 0
+    date: new Date().toISOString().split('T')[0]
   });
 
-  const calculateInterestAndCapital = (amount, debtId) => {
-    console.log('All debts:', debts);
-    console.log('Looking for debt with ID:', debtId, 'type:', typeof debtId);
-    
-    // Convert debtId to number since it comes from select as string
-    const numericDebtId = parseInt(debtId, 10);
-    const debt = debts.find(d => d.id === numericDebtId);
-    
-    console.log('Found debt:', debt);
-    
-    if (!debt || !amount) return { interestAmount: 0, capitalAmount: parseFloat(amount) || 0 };
-
-    // Convert amount to float
-    const paymentAmount = parseFloat(amount);
-    
-    // Calculate monthly interest using proper float division
-    const monthlyInterestRate = parseFloat(debt.interestRate) / 100.0 / 12.0;
-    const interestDue = parseFloat(debt.amount) * monthlyInterestRate;
-
-    // If payment is less than interest due, all goes to interest
-    if (paymentAmount <= interestDue) {
-      return {
-        interestAmount: paymentAmount,
-        capitalAmount: 0
-      };
-    }
-
-    // Otherwise, pay interest first, then capital
-    return {
-      interestAmount: interestDue,
-      capitalAmount: paymentAmount - interestDue
-    };
-  };
-
-  const handleAmountChange = (e) => {
-    const amount = e.target.value;
-    if (!amount || !newPayment.debtId) {
-      setNewPayment({
-        ...newPayment,
-        amount,
-        interestAmount: 0,
-        capitalAmount: 0
-      });
-      return;
-    }
-
-    const { interestAmount, capitalAmount } = calculateInterestAndCapital(amount, newPayment.debtId);
-    console.log('Amount Change:', { amount, interestAmount, capitalAmount });
-    
-    setNewPayment({
-      ...newPayment,
-      amount,
-      interestAmount,
-      capitalAmount
-    });
-  };
-
-  const handleDebtChange = (e) => {
-    const debtId = e.target.value;
-    if (!debtId || !newPayment.amount) {
-      setNewPayment({
-        ...newPayment,
-        debtId,
-        interestAmount: 0,
-        capitalAmount: 0
-      });
-      return;
-    }
-
-    const { interestAmount, capitalAmount } = calculateInterestAndCapital(newPayment.amount, debtId);
-    
-    setNewPayment({
-      ...newPayment,
-      debtId,
-      interestAmount,
-      capitalAmount
-    });
-  };
-
-  const handleAddPayment = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!newPayment.amount || !newPayment.date || !newPayment.debtId) return;
-
-    // Convert debtId to number for consistency
-    const numericDebtId = parseInt(newPayment.debtId, 10);
-    const { interestAmount, capitalAmount } = calculateInterestAndCapital(newPayment.amount, numericDebtId);
     
-    // Add payment to history
-    const payment = {
-      id: Date.now(),
+    const paymentData = {
       amount: parseFloat(newPayment.amount),
-      date: newPayment.date,
-      note: newPayment.note,
-      debtId: numericDebtId,  // Store as number
-      interestAmount,
-      capitalAmount
+      debtId: newPayment.debtId,
+      date: new Date(newPayment.date).toISOString()
     };
 
-    // Update payments state
-    setPayments(currentPayments => {
-      const updatedPayments = [...currentPayments, payment];
-      return updatedPayments;
-    });
-
-    // Find the debt and calculate new amount
-    const debt = debts.find(d => d.id === numericDebtId);
-    if (debt) {
-      const newAmount = parseFloat(debt.amount) - payment.capitalAmount;
-      
-      // Update debts state with the new amount
-      setDebts(currentDebts => {
-        return currentDebts.map(d => 
-          d.id === numericDebtId
-            ? { ...d, amount: newAmount }
-            : d
-        );
+    try {
+      const docRef = await addPayment(userId, newPayment.debtId, paymentData);
+      setPayments([...payments, { ...paymentData, id: docRef.id }]);
+      setNewPayment({
+        amount: '',
+        debtId: '',
+        date: new Date().toISOString().split('T')[0]
       });
+    } catch (error) {
+      console.error('Error adding payment:', error);
     }
-
-    // Reset form
-    setNewPayment({
-      amount: '',
-      date: '',
-      note: '',
-      debtId: '',
-      interestAmount: 0,
-      capitalAmount: 0
-    });
   };
 
   return (
-    <div className="bg-white shadow rounded-lg p-6">
-      <h2 className="text-xl font-semibold mb-4">Payment History</h2>
+    <div>
+      <h3 className="text-xl font-semibold text-gray-800 mb-4">Payment History</h3>
+      
+      <form onSubmit={handleSubmit} className="mb-6 space-y-4">
+        <div className="grid grid-cols-1 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Debt</label>
+            <select
+              value={newPayment.debtId}
+              onChange={(e) => setNewPayment({ ...newPayment, debtId: e.target.value })}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              required
+            >
+              <option value="">Select a debt</option>
+              {debts.map((debt) => (
+                <option key={debt.id} value={debt.id}>
+                  {debt.name} (${debt.amount.toLocaleString()})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Amount</label>
+            <input
+              type="number"
+              value={newPayment.amount}
+              onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Date</label>
+            <input
+              type="date"
+              value={newPayment.date}
+              onChange={(e) => setNewPayment({ ...newPayment, date: e.target.value })}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              required
+            />
+          </div>
+        </div>
+        <button
+          type="submit"
+          className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+        >
+          Add Payment
+        </button>
+      </form>
 
-      <div className="mb-6">
-        <div className="space-y-2">
-          {payments.sort((a, b) => new Date(b.date) - new Date(a.date)).map(payment => {
-            const debt = debts.find(d => d.id === payment.debtId);
-            return (
-              <div key={payment.id} className="flex justify-between items-center p-3 bg-gray-50 rounded">
+      <div className="space-y-4 max-h-[400px] overflow-y-auto">
+        {payments.sort((a, b) => new Date(b.date) - new Date(a.date)).map((payment) => {
+          const debt = debts.find(d => d.id === payment.debtId);
+          return (
+            <div
+              key={payment.id}
+              className="p-4 border border-gray-200 rounded-lg"
+            >
+              <div className="flex justify-between items-start">
                 <div>
-                  <p className="font-medium">${payment.amount.toFixed(2)}</p>
-                  <p className="text-sm text-gray-500">
-                    {debt?.name || 'Unknown Debt'} - Interest: ${payment.interestAmount.toFixed(2)}, 
-                    Capital: ${payment.capitalAmount.toFixed(2)}
+                  <p className="font-semibold text-gray-800">
+                    {debt ? debt.name : 'Unknown Debt'}
                   </p>
-                  <p className="text-sm text-gray-500">{payment.note}</p>
+                  <p className="text-sm text-gray-600">
+                    ${payment.amount.toLocaleString()}
+                  </p>
                 </div>
                 <p className="text-sm text-gray-500">
                   {new Date(payment.date).toLocaleDateString()}
                 </p>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
       </div>
-
-      <form onSubmit={handleAddPayment} className="space-y-4">
-        <h3 className="text-lg font-medium">Add New Payment</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <input
-              type="number"
-              placeholder="Amount"
-              className="border rounded p-2 w-full"
-              value={newPayment.amount}
-              onChange={handleAmountChange}
-              required
-            />
-            <select
-              className="border rounded p-2 w-full"
-              value={newPayment.debtId}
-              onChange={handleDebtChange}
-              required
-            >
-              <option value="">Select Debt</option>
-              {debts.map(debt => (
-                <option key={debt.id} value={debt.id}>{debt.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-2">
-            <input
-              type="date"
-              className="border rounded p-2 w-full"
-              value={newPayment.date}
-              onChange={e => setNewPayment({...newPayment, date: e.target.value})}
-              required
-            />
-            <input
-              type="text"
-              placeholder="Note"
-              className="border rounded p-2 w-full"
-              value={newPayment.note}
-              onChange={e => setNewPayment({...newPayment, note: e.target.value})}
-            />
-          </div>
-        </div>
-        {newPayment.amount && newPayment.debtId && (
-          <div className="text-sm text-gray-600">
-            Interest: ${newPayment.interestAmount.toFixed(2)}, 
-            Capital: ${newPayment.capitalAmount.toFixed(2)}
-          </div>
-        )}
-        <button
-          type="submit"
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-        >
-          Add Payment
-        </button>
-      </form>
     </div>
   );
 }
-
-export default PaymentHistory;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getFinancialData, saveFinancialData } from '../services/firestore';
+import { getUserDebts, getDebtPayments } from '../services/firestore';
 import DebtOverview from './Dashboard/DebtOverview';
 import DebtChart from './Dashboard/DebtChart';
 import PaymentHistory from './Dashboard/PaymentHistory';
@@ -17,11 +17,17 @@ export default function Dashboard() {
   useEffect(() => {
     async function loadUserData() {
       try {
-        const data = await getFinancialData(currentUser.uid);
-        if (data) {
-          setDebts(data.debts || []);
-          setPayments(data.payments || []);
+        // Get all debts
+        const userDebts = await getUserDebts(currentUser.uid);
+        setDebts(userDebts);
+
+        // Get payments for each debt
+        const allPayments = [];
+        for (const debt of userDebts) {
+          const debtPayments = await getDebtPayments(currentUser.uid, debt.id);
+          allPayments.push(...debtPayments);
         }
+        setPayments(allPayments);
       } catch (error) {
         console.error('Error loading user data:', error);
       } finally {
@@ -31,16 +37,6 @@ export default function Dashboard() {
 
     loadUserData();
   }, [currentUser.uid]);
-
-  useEffect(() => {
-    // Save data to Firestore whenever debts or payments change
-    if (!loading) {
-      saveFinancialData(currentUser.uid, {
-        debts,
-        payments
-      });
-    }
-  }, [debts, payments, currentUser.uid, loading]);
 
   const handleLogout = async () => {
     try {
@@ -83,6 +79,7 @@ export default function Dashboard() {
               totalPaid={totalPaid}
               debts={debts}
               setDebts={setDebts}
+              userId={currentUser.uid}
             />
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -95,6 +92,7 @@ export default function Dashboard() {
                   setPayments={setPayments}
                   debts={debts}
                   setDebts={setDebts}
+                  userId={currentUser.uid}
                 />
               </div>
             </div>
