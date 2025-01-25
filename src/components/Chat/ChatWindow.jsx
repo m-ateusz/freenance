@@ -1,12 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
 import useLocalStorage from '../../hooks/useLocalStorage';
 import ReactMarkdown from 'react-markdown';
+import { FaMicrophone, FaStop } from 'react-icons/fa';
 
 function ChatWindow({ debts, payments }) {
   const [messages, setMessages] = useLocalStorage('chatMessages', []);
+  const [newMessage, setNewMessage] = useState('');
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
   const messagesEndRef = useRef(null);
+  const audioChunks = useRef([]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -15,6 +20,62 @@ function ChatWindow({ debts, payments }) {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunks.current.push(e.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
+        audioChunks.current = [];
+
+        // Create form data with audio file
+        const formData = new FormData();
+        formData.append('audio', audioBlob);
+
+        try {
+          setIsLoading(true);
+          const response = await fetch('http://localhost:3001/api/transcribe', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) throw new Error('Transcription failed');
+
+          const data = await response.json();
+          setInput(data.text);
+        } catch (error) {
+          console.error('Error transcribing audio:', error);
+          // You might want to show this error to the user
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      setMediaRecorder(recorder);
+      recorder.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      // You might want to show this error to the user
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      // Stop all audio tracks
+      mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    }
+  };
 
   const prepareFinancialContext = () => {
     console.log('Current debts:', debts);
@@ -54,7 +115,7 @@ function ChatWindow({ debts, payments }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || isLoading) return;
 
     const userMessage = {
       role: 'user',
@@ -228,6 +289,18 @@ function ChatWindow({ debts, payments }) {
             className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             disabled={isLoading}
           />
+          <button
+            type="button"
+            onClick={isRecording ? stopRecording : startRecording}
+            className={`p-2 rounded-lg ${
+              isRecording 
+                ? 'bg-red-500 hover:bg-red-600' 
+                : 'bg-blue-500 hover:bg-blue-600'
+            } text-white`}
+            disabled={isLoading}
+          >
+            {isRecording ? <FaStop /> : <FaMicrophone />}
+          </button>
           <button
             type="submit"
             disabled={isLoading}

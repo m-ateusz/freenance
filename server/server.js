@@ -5,6 +5,8 @@ import OpenAI from 'openai';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createServer } from 'http';
+import multer from 'multer';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -29,6 +31,33 @@ app.options('*', cors());
 
 // Parse JSON bodies with higher limit
 app.use(express.json({ limit: '10mb' }));
+
+// Configure multer for handling audio files
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = './uploads';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir);
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    // Ensure we preserve the .webm extension
+    cb(null, `${Date.now()}.webm`);
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    // Accept only webm files
+    if (file.mimetype === 'audio/webm') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only webm files are allowed'));
+    }
+  }
+});
 
 // Add request logging middleware
 app.use((req, res, next) => {
@@ -178,6 +207,28 @@ Your goal is to provide clear, step-by-step guidance to help users reduce and el
     });
     console.error('Detailed error:', error);
     res.status(500).json({ error: 'Failed to process chat request' });
+  }
+});
+
+// Add endpoint for audio transcription
+app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No audio file provided' });
+    }
+
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream(req.file.path),
+      model: "whisper-1",
+    });
+
+    // Clean up the uploaded file
+    fs.unlinkSync(req.file.path);
+
+    res.json({ text: transcription.text });
+  } catch (error) {
+    console.error('Transcription error:', error);
+    res.status(500).json({ error: 'Failed to transcribe audio' });
   }
 });
 
