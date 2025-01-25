@@ -33,8 +33,10 @@ function App() {
               </div>
               <div className="bg-white shadow-lg rounded-lg p-4 border border-gray-100">
                 <PaymentHistory 
-                  payments={payments}
+                  payments={payments} 
                   setPayments={setPayments}
+                  debts={debts}
+                  setDebts={setDebts}
                 />
               </div>
             </div>

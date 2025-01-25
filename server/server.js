@@ -93,42 +93,49 @@ app.get('/api/test', (req, res) => {
 app.post('/api/chat', async (req, res) => {
   console.log('\n=== Received chat request ===');
   try {
-    const { message, financialContext } = req.body;
+    const { message, financialContext, chatHistory } = req.body;
     
     console.log('Request body:', { 
       message, 
       hasFinancialContext: !!financialContext,
-      financialContextKeys: financialContext ? Object.keys(financialContext) : []
+      financialContextKeys: financialContext ? Object.keys(financialContext) : [],
+      chatHistoryLength: chatHistory ? chatHistory.length : 0
     });
     
-    const systemPrompt = `You are a helpful and empathetic financial advisor specializing in debt management. 
-Your role is to provide practical advice and emotional support to help users overcome their debt.
+    const systemPrompt = `You are an AI agent specializing in helping users manage and repay debts effectively.
 
-Here is gathered debt information: 
-${financialContext ? formatFinancialContext(financialContext) : 'None'}
+Current Financial Situation:
+${financialContext ? formatFinancialContext(financialContext) : 'No financial data available yet. I will need to gather information about your debts and payments.'}
 
-Based on this information, provide specific, actionable advice that takes into account the user's current financial situation. 
-Focus on:
-1. Practical steps to manage and reduce debt
-  - Especially which debt should be tackled first
-2. Strategies to optimize interest payments
-3. Budgeting advice to maintain payments
-4. Specific recommendations based on their debt composition
+Core Guidelines:
+1. Simplicity: Address one topic per message, keeping conversations focused and straightforward.
+2. Progressive Assistance: Ask for one piece of information at a time if more data is needed.
+3. Short and Clear Responses: Provide concise, actionable steps without unnecessary details.
+4. Adaptability: Use available debt information to suggest appropriate strategies (avalanche/snowball).
+5. Support: Guide through specific actions like budgeting or creditor negotiations.
+6. Motivation: Set achievable short-term goals and track progress.
 
-Format your response using markdown:
-- Use **bold** for important points
-- Use numbered lists (1., 2., etc.) for steps
-- Use bullet points for lists of items
-- Use *italics* for emphasis
+Rules:
+- Start by confirming available information and identify what's missing
+- Provide only one actionable step at a time
+- Ask clarifying questions when data is incomplete
+- Keep responses concise and focused
 
-Keep responses clear, encouraging, and focused on achievable goals. Explain your reasoning.`;
+Format responses using:
+- **bold** for key points or actions
+- Bullet points for lists
+- *italics* for emphasis
 
+Your goal is to provide clear, step-by-step guidance to help users reduce and eliminate their debts while building financial stability.`;
+
+    // Construct messages array with system prompt and chat history
     const messages = [
       { 
         role: "system", 
         content: systemPrompt
       },
-      { role: "user", content: message }
+      ...(chatHistory || []),  // Include previous chat history if available
+      { role: "user", content: message }  // Add the current message
     ];
 
     logWithTimestamp('OpenAI API Request:', {

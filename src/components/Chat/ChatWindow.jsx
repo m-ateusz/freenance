@@ -78,6 +78,12 @@ function ChatWindow({ debts, payments }) {
       
       const userMessageContent = input.trim();
       
+      // Prepare chat history in a format suitable for the API
+      const chatHistory = messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+      
       const response = await fetch(serverUrl, {
         method: 'POST',
         headers: {
@@ -85,7 +91,8 @@ function ChatWindow({ debts, payments }) {
         },
         body: JSON.stringify({ 
           message: userMessageContent,
-          financialContext
+          financialContext,
+          chatHistory
         }),
       });
 
@@ -118,11 +125,28 @@ function ChatWindow({ debts, payments }) {
     }
   };
 
+  const handleClearChat = () => {
+    setMessages([]);
+  };
+
   return (
     <div className="bg-white shadow-lg rounded-lg flex flex-col h-[calc(100vh-8rem)] border border-gray-100">
       <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-lg">
-        <h2 className="text-xl font-bold text-white">AI Financial Advisor</h2>
-        <p className="text-blue-100 text-sm">Get help with your debt management strategy</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-bold text-white">AI Financial Advisor</h2>
+            <p className="text-blue-100 text-sm">Get help with your debt management strategy</p>
+          </div>
+          <button
+            onClick={handleClearChat}
+            className="px-3 py-1 bg-blue-500 hover:bg-blue-400 text-white text-sm rounded-md transition-colors duration-200 flex items-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            Clear Chat
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
